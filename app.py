@@ -368,7 +368,6 @@ def registration_dialog():
             st.error("Please enter your company email.")
             return
 
-        # Validate email format
         email_clean = reg_email.strip().lower()
         if "@" not in email_clean:
             st.error("Please enter a valid email address.")
@@ -379,17 +378,7 @@ def registration_dialog():
             st.error("Please use your company email address, not a personal one.")
             return
 
-        # Save to Google Sheets
-        saved, err = save_user(
-            name=reg_name.strip(),
-            position=reg_position.strip(),
-            company=reg_company.strip(),
-            website=reg_website.strip(),
-            email=email_clean,
-        )
-        if not saved:
-            st.warning(f"Could not save registration data ({err}), but you can proceed.")
-
+        # Only save to session state — NO network calls inside dialog
         st.session_state.user_registered = True
         st.session_state.user_info = {
             "name": reg_name.strip(),
@@ -406,6 +395,15 @@ def registration_dialog():
 def render_input_step():
     # Auto-proceed to processing after registration completes
     if st.session_state.user_registered and "input_data" in st.session_state:
+        # Save to Google Sheets (deferred from dialog to avoid blocking dialog close)
+        info = st.session_state.user_info
+        save_user(
+            name=info["name"],
+            position=info["position"],
+            company=info["company"],
+            website=info["website"],
+            email=info["email"],
+        )
         st.session_state.step = "processing"
         st.rerun()
 
