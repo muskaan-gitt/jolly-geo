@@ -10,7 +10,7 @@ class OpenAIClient(BaseLLMClient):
     provider = LLMProvider.OPENAI
 
     def __init__(self, api_key: str):
-        self.client = OpenAI(api_key=api_key)
+        self.client = OpenAI(api_key=api_key, timeout=REQUEST_TIMEOUT_SECONDS)
 
     def execute_prompt(
         self,

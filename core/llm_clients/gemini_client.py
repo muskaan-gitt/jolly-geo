@@ -4,7 +4,7 @@ from google.genai import types
 from core.llm_clients.base_client import BaseLLMClient
 from models.data_models import LLMResponse, LLMProvider, PromptCategory, Source
 from core.scraper import extract_domain
-from config.settings import GEMINI_MODEL
+from config.settings import GEMINI_MODEL, REQUEST_TIMEOUT_SECONDS
 
 
 class GeminiClient(BaseLLMClient):
@@ -26,6 +26,7 @@ class GeminiClient(BaseLLMClient):
                 config=types.GenerateContentConfig(
                     system_instruction=system_context,
                     tools=[types.Tool(google_search=types.GoogleSearch())],
+                    http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_SECONDS * 1000),
                 ),
             )
 

@@ -95,6 +95,9 @@ def run_all_prompts(
         provider_order.get(r.provider, 999),
     ))
 
+    # Only return valid responses — failed calls are excluded
+    results = [r for r in results if r.error is None]
+
     return results
 
 
@@ -103,8 +106,7 @@ def _execute_with_retry(
     prompt: str,
     category: PromptCategory,
 ) -> LLMResponse:
-    """Execute a prompt with retry logic."""
-    last_error = None
+    """Execute a prompt with retry logic. Retries ALL errors."""
     for attempt in range(MAX_RETRIES + 1):
         response = client.execute_prompt(
             prompt=prompt,
@@ -114,17 +116,9 @@ def _execute_with_retry(
         if response.error is None:
             return response
 
-        last_error = response.error
-
-        retryable_keywords = ["rate", "429", "500", "502", "503", "timeout", "overloaded"]
-        is_retryable = any(kw in last_error.lower() for kw in retryable_keywords)
-
-        if not is_retryable or attempt >= MAX_RETRIES:
-            return response
-
-        if attempt < len(RETRY_BACKOFF_SECONDS):
-            time.sleep(RETRY_BACKOFF_SECONDS[attempt])
-        else:
-            time.sleep(4)
+        # Retry all errors with backoff
+        if attempt < MAX_RETRIES:
+            backoff = RETRY_BACKOFF_SECONDS[attempt] if attempt < len(RETRY_BACKOFF_SECONDS) else 4
+            time.sleep(backoff)
 
     return response

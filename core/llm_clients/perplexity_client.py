@@ -4,7 +4,7 @@ from openai import OpenAI
 from core.llm_clients.base_client import BaseLLMClient
 from models.data_models import LLMResponse, LLMProvider, PromptCategory, Source
 from core.scraper import extract_domain
-from config.settings import PERPLEXITY_MODEL
+from config.settings import PERPLEXITY_MODEL, REQUEST_TIMEOUT_SECONDS
 
 
 class PerplexityClient(BaseLLMClient):
@@ -14,6 +14,7 @@ class PerplexityClient(BaseLLMClient):
         self.client = OpenAI(
             api_key=api_key,
             base_url="https://api.perplexity.ai",
+            timeout=REQUEST_TIMEOUT_SECONDS,
         )
 
     def execute_prompt(

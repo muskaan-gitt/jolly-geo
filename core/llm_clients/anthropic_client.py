@@ -3,14 +3,14 @@ from anthropic import Anthropic
 from core.llm_clients.base_client import BaseLLMClient
 from models.data_models import LLMResponse, LLMProvider, PromptCategory, Source
 from core.scraper import extract_domain
-from config.settings import ANTHROPIC_MODEL
+from config.settings import ANTHROPIC_MODEL, REQUEST_TIMEOUT_SECONDS
 
 
 class AnthropicClient(BaseLLMClient):
     provider = LLMProvider.ANTHROPIC
 
     def __init__(self, api_key: str):
-        self.client = Anthropic(api_key=api_key)
+        self.client = Anthropic(api_key=api_key, timeout=REQUEST_TIMEOUT_SECONDS)
 
     def execute_prompt(
         self,
