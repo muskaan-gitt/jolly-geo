@@ -4,3 +4,4 @@ __pycache__/
 outputs/
 .streamlit/secrets.toml
 .claude/
+config/google_credentials.json

@@ -71,3 +71,13 @@ BLOG_DOMAINS = {
 VIDEO_DOMAINS = {
     "youtube.com", "youtu.be", "vimeo.com", "dailymotion.com",
 }
+
+# ── Google Sheets (lead capture) ──────────────────────────
+GOOGLE_SHEETS_CREDENTIALS = "config/google_credentials.json"
+GOOGLE_SHEETS_SPREADSHEET_KEY = "1OKGE9gdFvlZqMXtohog3HQ2JiDA6fyW375sat4fCZgA"
+
+PERSONAL_EMAIL_DOMAINS = {
+    "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
+    "icloud.com", "mail.com", "protonmail.com", "zoho.com", "yandex.com",
+    "live.com", "msn.com", "me.com", "gmx.com", "inbox.com",
+}
