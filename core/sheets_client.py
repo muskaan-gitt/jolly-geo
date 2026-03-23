@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime
 
@@ -19,7 +20,20 @@ def _get_sheet():
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         GOOGLE_SHEETS_CREDENTIALS,
     )
-    gc = gspread.service_account(filename=creds_path)
+
+    if os.path.exists(creds_path):
+        gc = gspread.service_account(filename=creds_path)
+    else:
+        # Fallback: try env var (for deployed environments like Codespaces)
+        creds_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON")
+        if not creds_json:
+            raise RuntimeError(
+                f"Google Sheets credentials not found. "
+                f"Checked file: {creds_path} and env var GOOGLE_SHEETS_CREDENTIALS_JSON"
+            )
+        creds_dict = json.loads(creds_json)
+        gc = gspread.service_account_from_dict(creds_dict)
+
     spreadsheet = gc.open_by_key(GOOGLE_SHEETS_SPREADSHEET_KEY)
     worksheet = spreadsheet.sheet1
 
@@ -31,8 +45,8 @@ def _get_sheet():
     return worksheet
 
 
-def save_user(name: str, position: str, company: str, website: str, email: str) -> bool:
-    """Append a new user registration row. Returns True on success."""
+def save_user(name: str, position: str, company: str, website: str, email: str) -> tuple[bool, str]:
+    """Append a new user registration row. Returns (success, error_message)."""
     try:
         sheet = _get_sheet()
         row = [
@@ -47,10 +61,9 @@ def save_user(name: str, position: str, company: str, website: str, email: str) 
             "",  # Report Filename (filled later)
         ]
         sheet.append_row(row, value_input_option="RAW")
-        return True
+        return True, ""
     except Exception as e:
-        print(f"Error saving user to Google Sheets: {e}")
-        return False
+        return False, str(e)
 
 
 def attach_report(email: str, brand_name: str, report_filename: str) -> bool:

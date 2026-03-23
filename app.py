@@ -379,7 +379,7 @@ def registration_dialog():
             return
 
         # Save to Google Sheets
-        saved = save_user(
+        saved, err = save_user(
             name=reg_name.strip(),
             position=reg_position.strip(),
             company=reg_company.strip(),
@@ -387,7 +387,7 @@ def registration_dialog():
             email=email_clean,
         )
         if not saved:
-            st.warning("Could not save registration data, but you can proceed.")
+            st.warning(f"Could not save registration data ({err}), but you can proceed.")
 
         st.session_state.user_registered = True
         st.session_state.user_info = {
@@ -398,7 +398,7 @@ def registration_dialog():
             "email": email_clean,
         }
         st.session_state.step = "processing"
-        st.rerun()
+        st.rerun(scope="app")
 
 
 # ── Step 1: Input ───────────────────────────────────────────
