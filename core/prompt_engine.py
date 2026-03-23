@@ -3,9 +3,6 @@ from models.data_models import PromptCategory
 from config.prompts import (
     PROMPT_GENERATION_SYSTEM,
     PROMPT_GENERATION_USER,
-    COMMERCIAL_TEMPLATES,
-    COMPARISON_TEMPLATES,
-    INFORMATIONAL_TEMPLATES,
 )
 from config.settings import ANTHROPIC_MODEL
 
@@ -60,15 +57,17 @@ def build_prompt_set(
             if p not in existing:
                 existing.append(p)
 
-        # If still not enough, fill with templates
+        # If still not enough, fill with dynamic fallbacks
         if len(existing) < 3:
-            templates = _get_templates(category)
-            for tmpl in templates:
+            fallbacks = _generate_dynamic_fallback(
+                category, category_label, competitors, brand_description,
+                offset=len(existing),
+            )
+            for fb in fallbacks:
                 if len(existing) >= 3:
                     break
-                filled = _fill_template(tmpl, brand_name, category_label, competitors)
-                if filled not in existing:
-                    existing.append(filled)
+                if fb not in existing:
+                    existing.append(fb)
 
         result[category] = existing[:3]
 
@@ -227,28 +226,106 @@ def _extract_short_category(description: str, brand_name: str) -> str:
     return short if short else "software tools"
 
 
-# ── Template helpers ────────────────────────────────────────
+# ── Dynamic fallback prompt generation ─────────────────────
 
-def _get_templates(category: PromptCategory) -> list[str]:
-    if category == PromptCategory.COMMERCIAL:
-        return COMMERCIAL_TEMPLATES
-    elif category == PromptCategory.COMPARISON:
-        return COMPARISON_TEMPLATES
-    else:
-        return INFORMATIONAL_TEMPLATES
+def _extract_use_cases(brand_description: str) -> list[str]:
+    """Extract specific use cases / capabilities from the brand description."""
+    if not brand_description:
+        return []
+
+    use_cases = []
+    desc = brand_description
+
+    # Split on common delimiters that separate capabilities
+    for sep in [",", " and ", " & ", ";", " through ", " including ", " such as "]:
+        parts = desc.split(sep)
+        if len(parts) > 1:
+            for part in parts:
+                cleaned = part.strip().strip(".")
+                # Only keep phrases that look like capabilities (3-8 words)
+                word_count = len(cleaned.split())
+                if 2 <= word_count <= 10 and cleaned not in use_cases:
+                    use_cases.append(cleaned)
+
+    # If nothing extracted, use the full description
+    if not use_cases:
+        use_cases = [brand_description.split(".")[0].strip()]
+
+    return use_cases[:5]
 
 
-def _fill_template(
-    template: str,
-    brand_name: str,
+def _generate_dynamic_fallback(
+    category: PromptCategory,
     category_label: str,
     competitors: list[str],
-) -> str:
-    """Fill template placeholders using the short category label."""
-    competitor = competitors[0] if competitors else "leading tools"
-    return (
-        template
-        .replace("{brand_name}", brand_name)
-        .replace("{competitor}", competitor)
-        .replace("{category_label}", category_label)
-    )
+    brand_description: str,
+    offset: int = 0,
+) -> list[str]:
+    """
+    Generate context-aware fallback prompts dynamically from brand info.
+    No hardcoded templates — constructs prompts from the available context.
+    """
+    use_cases = _extract_use_cases(brand_description)
+    prompts = []
+
+    if category == PromptCategory.COMMERCIAL:
+        # Each prompt targets a different angle: specific capability, audience, evaluation
+        if use_cases:
+            prompts.append(
+                f"Which {category_label} do professionals recommend for {use_cases[0]}?"
+            )
+        if len(use_cases) > 1:
+            prompts.append(
+                f"I need a solution for {use_cases[1]} — what are the top-rated {category_label}?"
+            )
+        else:
+            prompts.append(
+                f"What {category_label} are industry professionals recommending right now?"
+            )
+        prompts.append(
+            f"What should I evaluate when choosing between {category_label} for my business?"
+        )
+
+    elif category == PromptCategory.COMPARISON:
+        # Each prompt uses a different competitor, framed as "alternatives to"
+        for i in range(3):
+            idx = (offset + i) % len(competitors) if competitors else 0
+            if competitors:
+                comp = competitors[idx]
+                if use_cases:
+                    use_case = use_cases[i % len(use_cases)]
+                    prompts.append(
+                        f"What are the best alternatives to {comp} for {use_case}?"
+                    )
+                else:
+                    prompts.append(
+                        f"Which {category_label} compete with {comp} and what are their strengths?"
+                    )
+            else:
+                prompts.append(
+                    f"Which {category_label} are considered the top competitors in the space?"
+                )
+
+    elif category == PromptCategory.INFORMATIONAL:
+        # Each prompt asks about trends/practices tied to the brand's domain
+        if use_cases:
+            prompts.append(
+                f"How are businesses leveraging {use_cases[0]} to stay competitive?"
+            )
+        else:
+            prompts.append(
+                f"What trends in {category_label} are shaping the industry right now?"
+            )
+        prompts.append(
+            f"What should companies know about choosing the right {category_label} strategy?"
+        )
+        if len(use_cases) > 1:
+            prompts.append(
+                f"What role does {use_cases[1]} play in a modern {category_label} workflow?"
+            )
+        else:
+            prompts.append(
+                f"Which {category_label} practices are delivering the best results in 2026?"
+            )
+
+    return prompts
