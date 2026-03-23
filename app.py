@@ -254,6 +254,8 @@ if "user_registered" not in st.session_state:
     st.session_state.user_registered = False
 if "user_info" not in st.session_state:
     st.session_state.user_info = {}
+if "show_registration" not in st.session_state:
+    st.session_state.show_registration = False
 
 
 # ── Sidebar ─────────────────────────────────────────────────
@@ -389,6 +391,7 @@ def registration_dialog():
         if not saved:
             st.warning(f"Could not save registration data ({err}), but you can proceed.")
 
+        st.session_state.show_registration = False
         st.session_state.user_registered = True
         st.session_state.user_info = {
             "name": reg_name.strip(),
@@ -510,7 +513,12 @@ def render_input_step():
             st.session_state.step = "processing"
             st.rerun()
         else:
-            registration_dialog()
+            st.session_state.show_registration = True
+            st.rerun()
+
+    # Show registration dialog on every rerun while flag is set
+    if st.session_state.show_registration and not st.session_state.user_registered:
+        registration_dialog()
 
 
 # ── Step 2: Processing ─────────────────────────────────────
