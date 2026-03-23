@@ -24,15 +24,23 @@ def _get_sheet():
     if os.path.exists(creds_path):
         gc = gspread.service_account(filename=creds_path)
     else:
-        # Fallback: try env var (for deployed environments like Codespaces)
-        creds_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON")
-        if not creds_json:
-            raise RuntimeError(
-                f"Google Sheets credentials not found. "
-                f"Checked file: {creds_path} and env var GOOGLE_SHEETS_CREDENTIALS_JSON"
-            )
-        creds_dict = json.loads(creds_json)
-        gc = gspread.service_account_from_dict(creds_dict)
+        # Fallback 1: Streamlit secrets (for Streamlit Community Cloud)
+        try:
+            import streamlit as st
+            creds_dict = dict(st.secrets["gcp_service_account"])
+            gc = gspread.service_account_from_dict(creds_dict)
+        except (ImportError, KeyError, FileNotFoundError):
+            # Fallback 2: env var (for other deployed environments)
+            creds_json = os.getenv("GOOGLE_SHEETS_CREDENTIALS_JSON")
+            if not creds_json:
+                raise RuntimeError(
+                    "Google Sheets credentials not found. "
+                    "Add gcp_service_account to Streamlit secrets, "
+                    "set GOOGLE_SHEETS_CREDENTIALS_JSON env var, "
+                    f"or place credentials file at {creds_path}"
+                )
+            creds_dict = json.loads(creds_json)
+            gc = gspread.service_account_from_dict(creds_dict)
 
     spreadsheet = gc.open_by_key(GOOGLE_SHEETS_SPREADSHEET_KEY)
     worksheet = spreadsheet.sheet1
