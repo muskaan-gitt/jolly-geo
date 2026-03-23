@@ -8,7 +8,7 @@ from config.settings import (
 )
 
 HEADERS = [
-    "Name", "Position", "Company", "Email",
+    "Name", "Position", "Company", "Company Website", "Email",
     "Registered At", "Brand Analyzed", "Report Generated At", "Report Filename",
 ]
 
@@ -26,12 +26,12 @@ def _get_sheet():
     # Ensure headers exist
     existing = worksheet.row_values(1)
     if not existing or existing[0] != HEADERS[0]:
-        worksheet.update("A1:H1", [HEADERS])
+        worksheet.update("A1:I1", [HEADERS])
 
     return worksheet
 
 
-def save_user(name: str, position: str, company: str, email: str) -> bool:
+def save_user(name: str, position: str, company: str, website: str, email: str) -> bool:
     """Append a new user registration row. Returns True on success."""
     try:
         sheet = _get_sheet()
@@ -39,6 +39,7 @@ def save_user(name: str, position: str, company: str, email: str) -> bool:
             name,
             position,
             company,
+            website,
             email,
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "",  # Brand Analyzed (filled later)
@@ -63,14 +64,14 @@ def attach_report(email: str, brand_name: str, report_filename: str) -> bool:
         for i, row in enumerate(all_values):
             if i == 0:
                 continue
-            if len(row) >= 4 and row[3].strip().lower() == email.strip().lower():
+            if len(row) >= 5 and row[4].strip().lower() == email.strip().lower():
                 target_row = i + 1  # 1-indexed for gspread
 
         if target_row is None:
             return False
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        sheet.update(f"F{target_row}:H{target_row}", [[brand_name, timestamp, report_filename]])
+        sheet.update(f"G{target_row}:I{target_row}", [[brand_name, timestamp, report_filename]])
         return True
     except Exception as e:
         print(f"Error attaching report to Google Sheets: {e}")

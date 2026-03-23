@@ -341,23 +341,27 @@ def main():
 
 @st.dialog("Register to Run Your Analysis")
 def registration_dialog():
-    st.caption("Please provide your details to continue. A company email is required.")
+    st.caption("All fields are required. Please use your company email.")
 
-    reg_name = st.text_input("Full Name", key="reg_name", placeholder="Jane Smith")
-    reg_position = st.text_input("Position / Role", key="reg_position", placeholder="Marketing Manager")
-    reg_company = st.text_input("Company Name", key="reg_company", placeholder="Acme Corp")
-    reg_email = st.text_input("Company Email", key="reg_email", placeholder="jane@acme.com")
+    reg_name = st.text_input("Full Name *", key="reg_name", placeholder="Jane Smith")
+    reg_position = st.text_input("Position / Role *", key="reg_position", placeholder="Marketing Manager")
+    reg_company = st.text_input("Company Name *", key="reg_company", placeholder="Acme Corp")
+    reg_website = st.text_input("Company Website *", key="reg_website", placeholder="https://acme.com")
+    reg_email = st.text_input("Company Email *", key="reg_email", placeholder="jane@acme.com")
 
     if st.button("Continue to Analysis", type="primary", use_container_width=True):
-        # Validate fields
+        # Validate all fields are filled
         if not reg_name or not reg_name.strip():
             st.error("Please enter your name.")
+            return
+        if not reg_position or not reg_position.strip():
+            st.error("Please enter your position.")
             return
         if not reg_company or not reg_company.strip():
             st.error("Please enter your company name.")
             return
-        if not reg_position or not reg_position.strip():
-            st.error("Please enter your position.")
+        if not reg_website or not reg_website.strip():
+            st.error("Please enter your company website.")
             return
         if not reg_email or not reg_email.strip():
             st.error("Please enter your company email.")
@@ -379,6 +383,7 @@ def registration_dialog():
             name=reg_name.strip(),
             position=reg_position.strip(),
             company=reg_company.strip(),
+            website=reg_website.strip(),
             email=email_clean,
         )
         if not saved:
@@ -389,6 +394,7 @@ def registration_dialog():
             "name": reg_name.strip(),
             "position": reg_position.strip(),
             "company": reg_company.strip(),
+            "website": reg_website.strip(),
             "email": email_clean,
         }
         st.session_state.step = "processing"
@@ -510,6 +516,10 @@ def render_input_step():
 # ── Step 2: Processing ─────────────────────────────────────
 
 def render_processing_step():
+    if not st.session_state.user_registered:
+        st.session_state.step = "input"
+        st.rerun()
+
     st.markdown(
         '<div class="main-header">Analyzing Brand Visibility</div>',
         unsafe_allow_html=True,
@@ -665,6 +675,10 @@ def render_processing_step():
 # ── Step 3: Results ─────────────────────────────────────────
 
 def render_results_step():
+    if not st.session_state.user_registered:
+        st.session_state.step = "input"
+        st.rerun()
+
     report = st.session_state.report
     pdf_path = st.session_state.pdf_path
 
