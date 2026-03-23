@@ -239,36 +239,6 @@ st.markdown(f"""
         margin: 2px 2px;
     }}
 
-    /* ── Registration Modal Overlay ─────────────── */
-    .modal-overlay {{
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 999;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }}
-    .modal-box {{
-        background: {BRAND_CARD_BG};
-        border: 1px solid {BRAND_BORDER};
-        border-radius: 16px;
-        padding: 32px 36px;
-        max-width: 480px;
-        width: 90vw;
-        color: {BRAND_LIGHT};
-    }}
-    .modal-title {{
-        font-size: 1.3rem;
-        font-weight: 700;
-        margin-bottom: 4px;
-        color: {BRAND_LIGHT};
-    }}
-    .modal-caption {{
-        font-size: 0.85rem;
-        color: {BRAND_MUTED};
-        margin-bottom: 20px;
-    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -285,8 +255,6 @@ if "user_registered" not in st.session_state:
     st.session_state.user_registered = False
 if "user_info" not in st.session_state:
     st.session_state.user_info = {}
-if "show_registration" not in st.session_state:
-    st.session_state.show_registration = False
 
 
 # ── Sidebar ─────────────────────────────────────────────────
@@ -370,7 +338,68 @@ def main():
         render_results_step()
 
 
-# ── Registration Modal (inline) ────────────────────────────
+# ── Registration Dialog ─────────────────────────────────────
+
+@st.dialog("Register to Run Your Analysis")
+def registration_dialog():
+    st.caption("All fields are required. Please use your company email.")
+
+    reg_name = st.text_input("Full Name *", key="reg_name", placeholder="Jane Smith")
+    reg_position = st.text_input("Position / Role *", key="reg_position", placeholder="Marketing Manager")
+    reg_company = st.text_input("Company Name *", key="reg_company", placeholder="Acme Corp")
+    reg_website = st.text_input("Company Website *", key="reg_website", placeholder="https://acme.com")
+    reg_email = st.text_input("Company Email *", key="reg_email", placeholder="jane@acme.com")
+
+    if st.button("Continue to Analysis", type="primary", use_container_width=True):
+        # Validate all fields are filled
+        if not reg_name or not reg_name.strip():
+            st.error("Please enter your name.")
+            return
+        if not reg_position or not reg_position.strip():
+            st.error("Please enter your position.")
+            return
+        if not reg_company or not reg_company.strip():
+            st.error("Please enter your company name.")
+            return
+        if not reg_website or not reg_website.strip():
+            st.error("Please enter your company website.")
+            return
+        if not reg_email or not reg_email.strip():
+            st.error("Please enter your company email.")
+            return
+
+        # Validate email format
+        email_clean = reg_email.strip().lower()
+        if "@" not in email_clean:
+            st.error("Please enter a valid email address.")
+            return
+
+        email_domain = email_clean.split("@")[1]
+        if email_domain in PERSONAL_EMAIL_DOMAINS:
+            st.error("Please use your company email address, not a personal one.")
+            return
+
+        # Save to Google Sheets
+        saved, err = save_user(
+            name=reg_name.strip(),
+            position=reg_position.strip(),
+            company=reg_company.strip(),
+            website=reg_website.strip(),
+            email=email_clean,
+        )
+        if not saved:
+            st.warning(f"Could not save registration data ({err}), but you can proceed.")
+
+        st.session_state.user_registered = True
+        st.session_state.user_info = {
+            "name": reg_name.strip(),
+            "position": reg_position.strip(),
+            "company": reg_company.strip(),
+            "website": reg_website.strip(),
+            "email": email_clean,
+        }
+        st.session_state.step = "processing"
+        st.rerun()
 
 
 # ── Step 1: Input ───────────────────────────────────────────
@@ -482,66 +511,7 @@ def render_input_step():
             st.session_state.step = "processing"
             st.rerun()
         else:
-            st.session_state.show_registration = True
-            st.rerun()
-
-    # Show registration modal when flag is set
-    if st.session_state.show_registration and not st.session_state.user_registered:
-        st.markdown(
-            '<div class="modal-overlay"><div class="modal-box">'
-            '<div class="modal-title">Register to Run Your Analysis</div>'
-            '<div class="modal-caption">All fields are required. Please use your company email.</div>'
-            '</div></div>',
-            unsafe_allow_html=True,
-        )
-
-        reg_name = st.text_input("Full Name *", key="reg_name", placeholder="Jane Smith")
-        reg_position = st.text_input("Position / Role *", key="reg_position", placeholder="Marketing Manager")
-        reg_company = st.text_input("Company Name *", key="reg_company", placeholder="Acme Corp")
-        reg_website = st.text_input("Company Website *", key="reg_website", placeholder="https://acme.com")
-        reg_email = st.text_input("Company Email *", key="reg_email", placeholder="jane@acme.com")
-
-        if st.button("Continue to Analysis", key="reg_submit", type="primary", use_container_width=True):
-            # Validate all fields are filled
-            if not reg_name or not reg_name.strip():
-                st.error("Please enter your name.")
-            elif not reg_position or not reg_position.strip():
-                st.error("Please enter your position.")
-            elif not reg_company or not reg_company.strip():
-                st.error("Please enter your company name.")
-            elif not reg_website or not reg_website.strip():
-                st.error("Please enter your company website.")
-            elif not reg_email or not reg_email.strip():
-                st.error("Please enter your company email.")
-            elif "@" not in reg_email.strip().lower():
-                st.error("Please enter a valid email address.")
-            elif reg_email.strip().lower().split("@")[1] in PERSONAL_EMAIL_DOMAINS:
-                st.error("Please use your company email address, not a personal one.")
-            else:
-                email_clean = reg_email.strip().lower()
-
-                # Save to Google Sheets
-                saved, err = save_user(
-                    name=reg_name.strip(),
-                    position=reg_position.strip(),
-                    company=reg_company.strip(),
-                    website=reg_website.strip(),
-                    email=email_clean,
-                )
-                if not saved:
-                    st.warning(f"Could not save registration data ({err}), but you can proceed.")
-
-                st.session_state.show_registration = False
-                st.session_state.user_registered = True
-                st.session_state.user_info = {
-                    "name": reg_name.strip(),
-                    "position": reg_position.strip(),
-                    "company": reg_company.strip(),
-                    "website": reg_website.strip(),
-                    "email": email_clean,
-                }
-                st.session_state.step = "processing"
-                st.rerun()
+            registration_dialog()
 
 
 # ── Step 2: Processing ─────────────────────────────────────
