@@ -398,13 +398,17 @@ def registration_dialog():
             "website": reg_website.strip(),
             "email": email_clean,
         }
-        st.session_state.step = "processing"
         st.rerun()
 
 
 # ── Step 1: Input ───────────────────────────────────────────
 
 def render_input_step():
+    # Auto-proceed to processing after registration completes
+    if st.session_state.user_registered and "input_data" in st.session_state:
+        st.session_state.step = "processing"
+        st.rerun()
+
     st.markdown(
         '<div class="main-header">GEO Visibility Monitor</div>',
         unsafe_allow_html=True,
