@@ -69,6 +69,18 @@ def build_prompt_set(
                 if fb not in existing:
                     existing.append(fb)
 
+        # Safety net: if still < 3 after all sources, pad with generic prompts
+        generic_fillers = [
+            f"What are the best {category_label} available right now?",
+            f"How should a business evaluate {category_label} options?",
+            f"What do experts recommend when choosing {category_label}?",
+        ]
+        filler_idx = 0
+        while len(existing) < 3 and filler_idx < len(generic_fillers):
+            if generic_fillers[filler_idx] not in existing:
+                existing.append(generic_fillers[filler_idx])
+            filler_idx += 1
+
         result[category] = existing[:3]
 
     return result
@@ -147,11 +159,7 @@ def _parse_structured_response(text: str, brand_name: str) -> tuple:
 
         # Clean the line (strip numbering, bullets, etc.)
         clean_line = line.lstrip("0123456789.-) •").strip()
-        if not clean_line or len(clean_line) < 10:
-            continue
-
-        # Filter out prompts that contain the brand name
-        if brand_name.lower() in clean_line.lower():
+        if not clean_line:
             continue
 
         # Add to the current section
@@ -287,11 +295,15 @@ def _generate_dynamic_fallback(
         )
 
     elif category == PromptCategory.COMPARISON:
-        # Each prompt uses a different competitor, framed as "alternatives to"
+        # Each prompt uses a different competitor where possible
+        used_competitors = set()
         for i in range(3):
-            idx = (offset + i) % len(competitors) if competitors else 0
-            if competitors:
-                comp = competitors[idx]
+            idx = (offset + i) % len(competitors) if competitors else -1
+            comp = competitors[idx] if competitors and idx >= 0 else None
+
+            # Avoid repeating a competitor — use varied patterns instead
+            if comp and comp not in used_competitors:
+                used_competitors.add(comp)
                 if use_cases:
                     use_case = use_cases[i % len(use_cases)]
                     prompts.append(
@@ -302,9 +314,14 @@ def _generate_dynamic_fallback(
                         f"Which {category_label} compete with {comp} and what are their strengths?"
                     )
             else:
-                prompts.append(
-                    f"Which {category_label} are considered the top competitors in the space?"
-                )
+                # No more unique competitors — use varied generic patterns
+                fallback_patterns = [
+                    f"What are the top {category_label} and how do they compare?",
+                    f"Which {category_label} are professionals switching to and why?",
+                    f"How do the leading {category_label} differ in features and pricing?",
+                ]
+                pattern_idx = (i - len(used_competitors)) % len(fallback_patterns)
+                prompts.append(fallback_patterns[pattern_idx])
 
     elif category == PromptCategory.INFORMATIONAL:
         # Each prompt asks about trends/practices tied to the brand's domain

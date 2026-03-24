@@ -96,7 +96,7 @@ def run_all_prompts(
     ))
 
     # Only return valid responses — failed calls are excluded
-    results = [r for r in results if r.error is None]
+    results = [r for r in results if r.error is None and r.raw_response.strip()]
 
     return results
 

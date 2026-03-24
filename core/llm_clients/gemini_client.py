@@ -31,6 +31,13 @@ class GeminiClient(BaseLLMClient):
             )
 
             full_text = response.text or ""
+            if not full_text.strip():
+                return self._make_response(
+                    prompt=prompt,
+                    prompt_category=prompt_category,
+                    error="Empty response from Gemini (possibly blocked by safety filters)",
+                )
+
             sources = []
             seen_urls = set()
 
