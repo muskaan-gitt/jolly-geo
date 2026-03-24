@@ -733,11 +733,13 @@ def render_results_step():
             """, unsafe_allow_html=True)
 
         with col2:
-            valid = sum(1 for r in report.responses if r.error is None)
+            valid = sum(1 for r in report.responses if r.error is None and r.raw_response.strip())
+            errored = sum(1 for r in report.responses if r.error is not None)
+            label = f"Valid Responses" + (f" ({errored} errors)" if errored else "")
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-value" style="color:{BRAND_LIGHT}">{valid}/{len(report.responses)}</div>
-                <div class="metric-label">Valid Responses</div>
+                <div class="metric-label">{label}</div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -838,25 +840,34 @@ def _render_prompt_tab(report: GEOReport):
             prompt_idx += 1
             prompt_responses = [
                 r for r in report.responses
-                if r.prompt == prompt_text and r.error is None
+                if r.prompt == prompt_text and r.error is None and r.raw_response.strip()
+            ]
+            prompt_errors = [
+                r for r in report.responses
+                if r.prompt == prompt_text and (r.error is not None or not r.raw_response.strip())
             ]
 
             with st.expander(f"P{prompt_idx} [{category.value}]: {prompt_text[:70]}..."):
-                if not prompt_responses:
-                    st.warning("No valid responses for this prompt.")
+                if not prompt_responses and not prompt_errors:
+                    st.warning("No responses for this prompt.")
                     continue
 
-                rows = []
-                for r in prompt_responses:
-                    comp_mentioned = [c for c, m in r.competitor_mentions.items() if m]
-                    rows.append({
-                        "Model": r.provider.value,
-                        "Brand Mentioned": "Yes" if r.brand_mentioned else "No",
-                        "Brand Cited": "Yes" if r.brand_cited else "No",
-                        "Competitors Found": ", ".join(comp_mentioned) if comp_mentioned else "None",
-                        "Sources": len(r.sources),
-                    })
-                st.dataframe(rows, use_container_width=True, hide_index=True)
+                if prompt_responses:
+                    rows = []
+                    for r in prompt_responses:
+                        comp_mentioned = [c for c, m in r.competitor_mentions.items() if m]
+                        rows.append({
+                            "Model": r.provider.value,
+                            "Brand Mentioned": "Yes" if r.brand_mentioned else "No",
+                            "Brand Cited": "Yes" if r.brand_cited else "No",
+                            "Competitors Found": ", ".join(comp_mentioned) if comp_mentioned else "None",
+                            "Sources": len(r.sources),
+                        })
+                    st.dataframe(rows, use_container_width=True, hide_index=True)
+
+                if prompt_errors:
+                    for r in prompt_errors:
+                        st.error(f"**{r.provider.value}**: {r.error or 'Empty response'}")
 
                 prompt_sources = []
                 seen = set()

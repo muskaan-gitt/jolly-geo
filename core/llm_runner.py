@@ -95,9 +95,8 @@ def run_all_prompts(
         provider_order.get(r.provider, 999),
     ))
 
-    # Only return valid responses — failed calls are excluded
-    results = [r for r in results if r.error is None and r.raw_response.strip()]
-
+    # Keep all responses — error responses are preserved so the UI can display them.
+    # Downstream analysis (visibility.py) already filters on r.error is None.
     return results
 
 

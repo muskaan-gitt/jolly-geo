@@ -19,75 +19,95 @@ class GeminiClient(BaseLLMClient):
         prompt_category: PromptCategory,
         system_context: str,
     ) -> LLMResponse:
-        try:
-            response = self.client.models.generate_content(
-                model=GEMINI_MODEL,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_context,
-                    tools=[types.Tool(google_search=types.GoogleSearch())],
-                    http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_SECONDS * 1000),
-                ),
-            )
+        # Try with google_search grounding first, then without as fallback
+        for use_grounding in [True, False]:
+            try:
+                config_kwargs = {
+                    "system_instruction": system_context,
+                    "http_options": types.HttpOptions(timeout=REQUEST_TIMEOUT_SECONDS * 1000),
+                }
+                if use_grounding:
+                    config_kwargs["tools"] = [types.Tool(google_search=types.GoogleSearch())]
 
-            full_text = response.text or ""
-            if not full_text.strip():
+                response = self.client.models.generate_content(
+                    model=GEMINI_MODEL,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(**config_kwargs),
+                )
+
+                # Safe text extraction — response.text can throw ValueError
+                full_text = ""
+                try:
+                    full_text = response.text or ""
+                except (ValueError, AttributeError):
+                    # response.text throws ValueError when blocked by safety filters
+                    # Try extracting from candidates directly
+                    if hasattr(response, "candidates") and response.candidates:
+                        candidate = response.candidates[0]
+                        if hasattr(candidate, "content") and candidate.content:
+                            parts = getattr(candidate.content, "parts", [])
+                            full_text = "".join(getattr(p, "text", "") for p in parts)
+
+                if not full_text.strip():
+                    if use_grounding:
+                        continue  # Retry without grounding
+                    return self._make_response(
+                        prompt=prompt,
+                        prompt_category=prompt_category,
+                        error="Empty response from Gemini (possibly blocked by safety filters)",
+                    )
+
+                sources = []
+                seen_urls = set()
+
+                # Extract sources from grounding metadata
+                if hasattr(response, "candidates") and response.candidates:
+                    candidate = response.candidates[0]
+                    grounding = getattr(candidate, "grounding_metadata", None)
+                    if grounding:
+                        chunks = getattr(grounding, "grounding_chunks", None)
+                        if chunks:
+                            for chunk in chunks:
+                                web = getattr(chunk, "web", None)
+                                if web:
+                                    url = getattr(web, "uri", "") or ""
+                                    title = getattr(web, "title", "") or ""
+                                    if url and url not in seen_urls:
+                                        seen_urls.add(url)
+                                        sources.append(Source(
+                                            url=url,
+                                            title=title,
+                                            domain=extract_domain(url),
+                                        ))
+
+                # Fallback: parse URLs from text
+                if not sources:
+                    sources = self._parse_urls_from_text(full_text)
+
                 return self._make_response(
                     prompt=prompt,
                     prompt_category=prompt_category,
-                    error="Empty response from Gemini (possibly blocked by safety filters)",
+                    raw_response=full_text,
+                    sources=sources,
+                )
+            except Exception as e:
+                if use_grounding:
+                    continue  # Retry without grounding
+                import traceback
+                error_detail = f"{type(e).__name__}: {str(e)} | Model: {GEMINI_MODEL}"
+                print(f"Gemini error: {error_detail}\n{traceback.format_exc()}")
+                return self._make_response(
+                    prompt=prompt,
+                    prompt_category=prompt_category,
+                    error=error_detail,
                 )
 
-            sources = []
-            seen_urls = set()
-
-            # Extract sources from grounding metadata
-            if hasattr(response, "candidates") and response.candidates:
-                candidate = response.candidates[0]
-                grounding = getattr(candidate, "grounding_metadata", None)
-                if grounding:
-                    # Get grounding chunks (direct source references)
-                    chunks = getattr(grounding, "grounding_chunks", None)
-                    if chunks:
-                        for chunk in chunks:
-                            web = getattr(chunk, "web", None)
-                            if web:
-                                url = getattr(web, "uri", "") or ""
-                                title = getattr(web, "title", "") or ""
-                                if url and url not in seen_urls:
-                                    seen_urls.add(url)
-                                    sources.append(Source(
-                                        url=url,
-                                        title=title,
-                                        domain=extract_domain(url),
-                                    ))
-
-                    # Also check grounding_supports for additional sources
-                    supports = getattr(grounding, "grounding_supports", None)
-                    if supports:
-                        for support in supports:
-                            refs = getattr(support, "grounding_chunk_indices", [])
-                            # These reference the chunks above, already captured
-
-            # Fallback: parse URLs from text
-            if not sources:
-                sources = self._parse_urls_from_text(full_text)
-
-            return self._make_response(
-                prompt=prompt,
-                prompt_category=prompt_category,
-                raw_response=full_text,
-                sources=sources,
-            )
-        except Exception as e:
-            import traceback
-            error_detail = f"{type(e).__name__}: {str(e)} | Model: {GEMINI_MODEL}"
-            print(f"Gemini error: {error_detail}\n{traceback.format_exc()}")
-            return self._make_response(
-                prompt=prompt,
-                prompt_category=prompt_category,
-                error=error_detail,
-            )
+        # Should not reach here, but just in case
+        return self._make_response(
+            prompt=prompt,
+            prompt_category=prompt_category,
+            error="Gemini failed with and without grounding",
+        )
 
     def _parse_urls_from_text(self, text: str) -> list[Source]:
         url_pattern = r'https?://[^\s\)\]\"\'<>]+'
