@@ -80,10 +80,13 @@ class GeminiClient(BaseLLMClient):
                 sources=sources,
             )
         except Exception as e:
+            import traceback
+            error_detail = f"{type(e).__name__}: {str(e)} | Model: {GEMINI_MODEL}"
+            print(f"Gemini error: {error_detail}\n{traceback.format_exc()}")
             return self._make_response(
                 prompt=prompt,
                 prompt_category=prompt_category,
-                error=str(e),
+                error=error_detail,
             )
 
     def _parse_urls_from_text(self, text: str) -> list[Source]:
