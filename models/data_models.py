@@ -12,6 +12,7 @@ class PromptCategory(Enum):
 
 class SourceCategory(Enum):
     OFFICIAL_SITE = "Official Site"
+    COMPETITOR_SITE = "Competitor Site"
     BLOG = "Blog"
     NEWS = "News"
     REVIEW_SITE = "Review Site"
@@ -20,6 +21,11 @@ class SourceCategory(Enum):
     WIKI = "Wiki / Encyclopedia"
     ECOMMERCE = "E-commerce"
     VIDEO = "Video"
+    THIRD_PARTY_ARTICLE = "Third-Party Article"
+    DOCUMENTATION = "Documentation"
+    EDUCATION = "Education"
+    GOVERNMENT = "Government"
+    RESEARCH = "Research / Academic"
     OTHER = "Other"
 
 

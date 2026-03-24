@@ -617,7 +617,7 @@ def render_processing_step():
         competitor_visibility = analyze_competitor_visibility(competitors, responses)
 
         brand_domain = extract_domain(website_url)
-        all_sources = categorize_all_sources(responses, brand_domain)
+        all_sources = categorize_all_sources(responses, brand_domain, competitors)
         source_counts = get_source_counts(all_sources)
 
         weak_points = identify_weak_points(
