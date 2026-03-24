@@ -1,6 +1,6 @@
 OPENAI_MODEL = "gpt-4o"
 ANTHROPIC_MODEL = "claude-sonnet-4-20250514"
-GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_MODEL = "gemini-2.5-flash"
 PERPLEXITY_MODEL = "sonar-pro"
 
 MAX_RETRIES = 4
